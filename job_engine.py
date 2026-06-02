@@ -104,18 +104,17 @@ def send_html_email(html_body):
     msg.attach(MIMEText(email_wrapper, "html"))
 
 
-import smtplib
-try:
-    server = smtplib.SMTP("smtp.gmail.com", 2525)
-    server.starttls()
-    server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-    server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
-    server.quit()
-    print("Test Email Report sent successfully!")
-except Exception as e:
-    print(f"Email Dispatch Failure: {e}")
-
-
+    import smtplib
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 2525)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
+        server.quit()
+        print("Test Email Report sent successfully!")
+    except Exception as e:
+        print(f"Email Dispatch Failure: {e}")
+        
 
 def main():
     final_html_report = ""
