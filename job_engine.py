@@ -1,61 +1,100 @@
 import os
 import requests
 from flask import Flask
+from huggingface_hub import InferenceClient
 
 app = Flask(__name__)
 
 # ==========================================
-# 1. THE SCRAPER ENGINE (Using Requests)
+# 1. ENVIRONMENT SETTINGS
 # ==========================================
-def fetch_job_leads():
-    """
-    Connects to target resources to scrape active listings.
-    If a source is temporarily unavailable, it safely falls back 
-    to a cached or clean structural layout.
-    """
-    print("Initiating career portal background scans...")
-    
-    # This list will hold the clean, final job objects
-    compiled_jobs = []
-    
-    try:
-        # Example web call structure using the 'requests' library
-        # response = requests.get("YOUR_TARGET_API_OR_SCRAPE_URL", timeout=10)
-        # data = response.json()
-        
-        # Base structured dataset for your active tracking target needs
-        compiled_jobs = [
-            {
-                "title": "Technical Product Manager - Remote", 
-                "company": "Optum", 
-                "url": "https://careers.unitedhealthgroup.com/"
-            },
-            {
-                "title": "Senior IT Application Engineer", 
-                "company": "CVS Health", 
-                "url": "https://jobs.cvshealth.com/"
-            }
-        ]
-    except Exception as e:
-        print(f"Scraper notice (using baseline storage): {e}")
-        # Safeguard fallback so your dashboard never crashes
-        compiled_jobs = [
-            {"title": "Technical Product Manager - Remote", "company": "Optum", "url": "https://careers.unitedhealthgroup.com/"},
-            {"title": "Senior IT Application Engineer", "company": "CVS Health", "url": "https://jobs.cvshealth.com/"}
-        ]
-        
-    return compiled_jobs
+CRAWLBASE_TOKEN = os.getenv("CRAWLBASE_TOKEN")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Initialize the Hugging Face AI client using a fast, powerful open-source model
+# (Using Meta's Llama-3-8B-Instruct via the serverless API)
+client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
 
 # ==========================================
-# 2. THE DASHBOARD INTERFACE (Flask)
+# 2. CONNECTIVITY & AI ENGINE
+# ==========================================
+def scrape_with_crawlbase(url):
+    """Hits the Crawlbase JS Token endpoint to load hidden Javascript elements cleanly."""
+    if not CRAWLBASE_TOKEN:
+        print("Error: Missing CRAWLBASE_TOKEN in environment variables.")
+        return ""
+        
+    encoded_url = requests.utils.quote(url)
+    crawlbase_url = f"https://api.crawlbase.com/?token={CRAWLBASE_TOKEN}&scroll=true&ajax_wait=true&url={encoded_url}"
+    try:
+        response = requests.get(crawlbase_url, timeout=30)
+        if response.status_code == 200:
+            return response.text
+    except Exception as e:
+        print(f"Failed to scrape {url}: {str(e)}")
+    return ""
+
+def analyze_page_with_ai(web_text):
+    """Sends the raw web content to the Hugging Face LLM to extract target roles."""
+    if not web_text:
+        return "No matching remote product roles found."
+        
+    prompt = f"""
+You are an expert IT job searching assistant. Analyze the raw text content from this corporate careers page and extract any active job listings that match remote Product Manager, Technical Product Manager, or IT Application Engineering positions.
+
+For each job found, construct a clean block exactly like this:
+<p style="margin-bottom:15px;">
+  <strong>Job Title:</strong> [Exact Title]<br>
+  <strong>Company:</strong> [Company Name]<br>
+  <strong>Location:</strong> Remote - US<br>
+  <strong>Direct Link:</strong> <a href="[Insert the specific extracted job URL or portal link]" style="color:#0288d1; font-weight:bold; text-decoration:underline;">Click Here to View & Apply</a><br>
+  <strong>Why It Fits:</strong> [1-2 sentences detailing semantic alignment]<br>
+</p>
+<hr style='border: 0; border-top: 1px solid #eee;'>
+
+If no roles match from the text, reply strictly with: "No matching remote product roles found."
+
+Raw Web Content:
+{web_text[:15000]}  # Keep within context boundaries
+"""
+    try:
+        # Generate text using the serverless Hugging Face API
+        output = client.text_generation(prompt, max_new_tokens=1000, temperature=0.1)
+        return output
+    except Exception as e:
+        print(f"Hugging Face Inference Error: {e}")
+        return f"<p>Error analyzing data with AI: {str(e)}</p>"
+
+# ==========================================
+# 3. THE FLASK ROUTE (Your Live Dashboard)
 # ==========================================
 @app.route("/")
 def dashboard_home():
-    # Fetch live matches dynamically every time you open or refresh your link
-    active_leads = fetch_job_leads()
+    # Define the precise job URLs you want scanned
+    portals = [
+        "https://careers.unitedhealthgroup.com/search-jobs?q=Product+Manager&gl=US", # Optum parent portal query
+        "https://jobs.cvshealth.com/search-jobs?q=Product+Manager"
+    ]
     
-    # Main HTML structure with built-in mobile-friendly styling
-    html_layout = """
+    html_body_content = ""
+    
+    for url in portals:
+        print(f"Scanning target portal: {url}")
+        raw_html_text = scrape_with_crawlbase(url)
+        
+        # Feed the text to your Hugging Face model
+        ai_extraction = analyze_page_with_ai(raw_html_text)
+        
+        # If it found matching entries, add them to our layout page
+        if "No matching remote product roles found." not in ai_extraction:
+            html_body_content += ai_extraction
+
+    # If the combined loops found absolutely nothing across all pages
+    if not html_body_content.strip():
+        html_body_content = "<p style='color: #718096; font-style: italic;'>No matching remote product roles found today.</p>"
+
+    # Master dashboard UI template container
+    master_layout = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -63,60 +102,31 @@ def dashboard_home():
         <meta name="robots" content="noindex, nofollow">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body { 
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
                 margin: 0; 
                 padding: 20px; 
                 background-color: #f7fafc; 
                 color: #2d3748; 
-            }
-            .wrapper { max-width: 750px; margin: 30px auto; padding: 0 15px; }
-            h1 { color: #1a202c; border-bottom: 3px solid #e2e8f0; padding-bottom: 14px; font-size: 1.65rem; }
-            ul { list-style-type: none; padding: 0; margin: 20px 0; }
-            li { 
-                background: #ffffff; 
-                margin-bottom: 14px; 
-                padding: 18px 22px; 
-                border-radius: 8px; 
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-                border-left: 5px solid #3182ce; 
-            }
-            .brand { font-weight: 700; color: #718096; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em; }
-            .position-title { margin: 6px 0 10px 0; font-size: 1.25rem; font-weight: 600; }
-            a { color: #3182ce; text-decoration: none; }
-            a:hover { text-decoration: underline; color: #2b6cb0; }
-            .tag { display: inline-block; background: #ebf8ff; color: #2b6cb0; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+            }}
+            .wrapper {{ max-width: 750px; margin: 30px auto; padding: 25px; background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
+            h1 {{ color: #1a202c; border-bottom: 3px solid #e2e8f0; padding-bottom: 14px; font-size: 1.65rem; margin-top: 0; }}
         </style>
     </head>
     <body>
         <div class="wrapper">
             <h1>Latest Remote Job Matches</h1>
-            <ul>
-    """
-
-    # Populate the list with verified links
-    for job in active_leads:
-        html_layout += f"""
-            <li>
-                <div class="brand">{job['company']}</div>
-                <div class="position-title"><a href="{job['url']}" target="_blank">{job['title']}</a></div>
-                <span class="tag">Verified Remote Target</span>
-            </li>
-        """
-
-    html_layout += """
-            </ul>
+            {html_body_content}
         </div>
     </body>
     </html>
     """
-    return html_layout
+    return master_layout
 
 # ==========================================
-# 3. CONTAINER INITIALIZATION
+# 4. START THE WEB RUNTIME
 # ==========================================
 if __name__ == "__main__":
-    # Dynamically bind to the platform port designated by Railway
     assigned_port = int(os.getenv("PORT", 8080))
-    print(f"Launching web interface server on port {assigned_port}...")
+    print(f"Launching AI Web interface on port {assigned_port}...")
     app.run(host="0.0.0.0", port=assigned_port)
