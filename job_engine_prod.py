@@ -22,9 +22,8 @@ HEALTHCARE_AI_QUERY = (
     'OR+%22Call+Center%22+OR+Agile%29'
 )
 
-OPTUM_COMBINED_URL = f"https://careers.unitedhealthgroup.com"
-# UPDATED: Re-routed CVS gateway link to prevent portal server-side filter failure
-CVS_COMBINED_URL = f"https://jobs.cvshealth.com/us/en"
+OPTUM_COMBINED_URL = f"https://careers.unitedhealthgroup.com/search-jobs?q={HEALTHCARE_AI_QUERY}&gl=US"
+CVS_COMBINED_URL = "https://jobs.cvshealth.com/us/en"
 
 PORTALS = [
     {
@@ -54,7 +53,7 @@ def scrape_with_crawlbase(url):
         
     proxies = {
         "http": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012",
-        "https": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
+        "https://http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
     }
     
     headers = {
@@ -73,15 +72,15 @@ def scrape_with_crawlbase(url):
 
 def analyze_page_with_ai(web_text, target_role):
     """
-    Sends raw content to Hugging Face to isolate jobs strictly within a 1-6 year product experience framework
-    evaluating semantic fit based on Technical Product Manager engineering literacy and model lifecycle benchmarks.
+    Sends raw content to Hugging Face to isolate exactly 2 distinct matching jobs per company,
+    filtering within a 1-6 year product experience framework.
     """
     if not web_text or len(web_text.strip()) < 500:
         return None
         
     prompt = f"""
-Analyze the raw text content from this corporate careers page and extract any active job listings matching: {target_role}.
-Filter strictly for positions targeting 1 to 6 years of experience in Product Management (e.g., jobs asking for 2+ years, 3+ years, 5 years, or up to 6 years of experience) to avoid bloated senior director/10+ year legacy tracks.
+Analyze the raw text content from this corporate careers page and extract exactly 2 distinct active job listings matching: {target_role}.
+Filter strictly for positions targeting 1 to 6 years of experience in Product Management (e.g., jobs asking for 2+ years, 3+ years, 5 years, or up to 6 years of experience) to avoid bloated senior director tracks. Do not stop at just 1 listing—extract exactly 2 distinct positions if they are present in the text.
 
 Evaluate semantic alignment by comparing requirements against the candidate's core Technical Product Manager (TPM) profile:
 - Enterprise Collaboration & Tooling: Daily proficiency orchestrating backlogs inside Jira, documenting system technical taxonomies in Confluence, and aligning cross-functional execution paths via GitHub.
@@ -90,7 +89,7 @@ Evaluate semantic alignment by comparing requirements against the candidate's co
 - Domain Context (Kaiser Permanente & Corporate Scale): Owned product taxonomy and technical roadmaps for "CHATS" enterprise cloud AI platform; managed 1M+ monthly call operational scaling metrics using STT, RAG, and NLP workflows. Led 40+ complex API integrations (including Epic EHR) under 100% strict HIPAA/PHI compliance frameworks. 
 - Agile & Education Foundations: Transitioned a 60+ member organization via the Agile Product Maturity Model (PMM) and PI Planning. Academic backing in Agentic AI Foundations (Harvard 2026) and AI Product Design (MIT 2024).
 
-For each matching job found, construct a clean block exactly like this:
+For each matching job found (exactly 2), construct a clean block exactly like this:
 <p style="margin-bottom:15px;">
   <strong>Job Title:</strong> [Exact Title]<br>
   <strong>Company:</strong> [Company Name]<br>
@@ -107,7 +106,7 @@ Raw Web Content:
 {web_text[:12000]}
 """
     try:
-        output = client.text_generation(prompt, max_new_tokens=1000, temperature=0.1)
+        output = client.text_generation(prompt, max_new_tokens=1500, temperature=0.1)
         if "No matching remote product roles found." in output or len(output.strip()) < 20:
             return None
         return output
@@ -131,7 +130,7 @@ def dashboard_home():
         if ai_extraction:
             html_body_content += ai_extraction
         else:
-            # FALLBACK TEMPLATE: Updated with collaboration tools and core AI engineering vocabulary
+            # FALLBACK TEMPLATE
             html_body_content += f"""
 <p style="margin-bottom:15px; background-color: #fffaf0; padding: 15px; border-radius: 6px; border: 1px solid #feebc8;">
   <strong style="color: #dd6b20; font-size: 0.85rem; uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 5px;">⚠️ Live Scraping Blocked - Target Portal Query Ready</strong>
