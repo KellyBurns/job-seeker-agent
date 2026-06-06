@@ -20,11 +20,7 @@ HEALTHCARE_AI_QUERY = (
     'OR+%22Call+Center%22+OR+Agile%29'
 )
 
-# Helper to append keywords to base URLs
-def build_url(base_url, query_param="q="):
-    return f"{base_url}&{query_param}{HEALTHCARE_AI_QUERY}"
-
-# Portals with restored keywords
+# Portals with restored keywords and validated f-string formatting
 PORTALS = [
     {"company": "Optum / UHG", "url": f"https://careers.unitedhealthgroup.com/search-jobs?acm=ALL&alrpm=ALL&ascf=[%7B%22key%22:%22custom_fields.WorkSetting%22,%22value%22:%22Remote+-+Linked+to+Site%22%7D,%7B%22key%22:%22custom_fields.WorkSetting%22,%22value%22:%22Remote+-+Multi+State%22%7D,%7B%22key%22:%22custom_fields.WorkSetting%22,%22value%22:%22Remote+-+Specific+state+(Contractually+Required)%22%7D,%7B%22key%22:%22custom_fields.WorkSetting%22,%22value%22:%22Remote+(Nationwide)%22%7D,%7B%22key%22:%22custom_fields.WorkSetting%22,%22value%22:%22Remote%22%7D]"},
     {"company": "CVS Health", "url": f"https://jobs.cvshealth.com/us/en/search-results?keywords={HEALTHCARE_AI_QUERY}&p=Aetna&cfWorkLocation=Remote"},
@@ -37,6 +33,50 @@ PORTALS = [
 ]
 
 # ==========================================
-# 2. ENGINE & DASHBOARD (Unchanged)
+# 2. ENGINE (Scraping & AI)
 # ==========================================
-# [All previous scrape_with_crawlbase, analyze_page_with_ai, and dashboard_home logic remains the same]
+def scrape_with_crawlbase(url):
+    if not CRAWLBASE_TOKEN: return ""
+    proxies = {
+        "http": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012",
+        "https": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
+    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    try:
+        response = requests.get(url, proxies=proxies, headers=headers, timeout=30, verify=False)
+        return response.text if response.status_code == 200 else ""
+    except: return ""
+
+def analyze_page_with_ai(web_text):
+    if not web_text or len(web_text.strip()) < 500: return None
+    prompt = f"Analyze the text and extract up to 2 active relevant job listings. Format as HTML blocks. Raw Content: {web_text[:12000]}"
+    try:
+        return client.text_generation(prompt, max_new_tokens=1500, temperature=0.1)
+    except: return None
+
+# ==========================================
+# 3. DASHBOARD
+# ==========================================
+@app.route("/")
+def dashboard_home():
+    html_body = ""
+    for item in PORTALS:
+        raw_text = scrape_with_crawlbase(item["url"])
+        ai_res = analyze_page_with_ai(raw_text)
+        
+        if ai_res and "No matching" not in ai_res:
+            html_body += ai_res
+        else:
+            html_body += f"""
+<div style="margin: 20px 0; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f7fafc;">
+  <strong>{item['company']}</strong><br>
+  <a href="{item['url']}" target="_blank" style="color:#0288d1; font-weight:bold;">Launch Direct Search Gateway &rarr;</a>
+</div>"""
+    return f"<html><body><div style='max-width:800px; margin:auto; font-family:sans-serif;'><h1>Active Job Leads</h1>{html_body}</div></body></html>"
+
+# ==========================================
+# 4. RUNTIME (Fixed Port Binding)
+# ==========================================
+if __name__ == "__main__":
+    assigned_port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=assigned_port)
