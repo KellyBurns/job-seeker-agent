@@ -115,6 +115,7 @@ def dashboard_home():
 <hr style='border: 0; border-top: 1px solid #eee;'>
             """
 
+    # Master layout wrapper with double curly braces to escape Python's f-string parsing
     master_layout = f"""
     <!DOCTYPE html>
     <html>
@@ -131,4 +132,22 @@ def dashboard_home():
                 color: #2d3748; 
             }}
             .wrapper {{ max-width: 750px; margin: 30px auto; padding: 25px; background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-            h1 {{ color: #1a202c; border-bottom: 3px solid #e2e8f0; padding-bottom: 14px; font-size: 1.65rem;
+            h1 {{ color: #1a202c; border-bottom: 3px solid #e2e8f0; padding-bottom: 14px; font-size: 1.65rem; margin-top: 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="wrapper">
+            <h1>Latest Remote Job Matches</h1>
+            {html_body_content}
+        </div>
+    </body>
+    </html>
+    """
+    return master_layout
+
+# ==========================================
+# 4. START THE WEB RUNTIME
+# ==========================================
+if __name__ == "__main__":
+    assigned_port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=assigned_port)
