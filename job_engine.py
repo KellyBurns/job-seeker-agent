@@ -11,19 +11,32 @@ app = Flask(__name__)
 CRAWLBASE_TOKEN = os.getenv("CRAWLBASE_TOKEN")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Initialize the Hugging Face AI client using a fast, powerful open-source model
-# (Using Meta's Llama-3-8B-Instruct via the serverless API)
+# Initialize the Hugging Face AI client
 client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
+
+# Your specific target search configurations
+PORTALS = [
+    {
+        "company": "Optum",
+        "search_title": "Technical Product Manager - Remote",
+        "direct_query_url": "https://careers.unitedhealthgroup.com/search-jobs?q=Product+Manager&gl=US",
+        "why_fits": "Aligns with your extensive IT application background and deep domain experience in enterprise healthcare systems."
+    },
+    {
+        "company": "CVS Health",
+        "search_title": "Senior IT Application Engineer / Product Owner",
+        "direct_query_url": "https://jobs.cvshealth.com/search-jobs?q=Product+Manager",
+        "why_fits": "Directly matches your 19 years of healthcare tech sector expertise and Scrum product ownership certifications."
+    }
+]
 
 # ==========================================
 # 2. CONNECTIVITY & AI ENGINE
 # ==========================================
 def scrape_with_crawlbase(url):
-    """Hits the Crawlbase JS Token endpoint to load hidden Javascript elements cleanly."""
+    """Hits the Crawlbase JS Token endpoint to load hidden elements cleanly."""
     if not CRAWLBASE_TOKEN:
-        print("Error: Missing CRAWLBASE_TOKEN in environment variables.")
         return ""
-        
     encoded_url = requests.utils.quote(url)
     crawlbase_url = f"https://api.crawlbase.com/?token={CRAWLBASE_TOKEN}&scroll=true&ajax_wait=true&url={encoded_url}"
     try:
@@ -31,23 +44,23 @@ def scrape_with_crawlbase(url):
         if response.status_code == 200:
             return response.text
     except Exception as e:
-        print(f"Failed to scrape {url}: {str(e)}")
+        print(f"Scrape timeout/error: {str(e)}")
     return ""
 
-def analyze_page_with_ai(web_text):
-    """Sends the raw web content to the Hugging Face LLM to extract target roles."""
-    if not web_text:
-        return "No matching remote product roles found."
+def analyze_page_with_ai(web_text, target_role):
+    """Sends raw content to Hugging Face to extract live deep links."""
+    if not web_text or len(web_text.strip()) < 500: # If the page source is empty or too short
+        return None
         
     prompt = f"""
-You are an expert IT job searching assistant. Analyze the raw text content from this corporate careers page and extract any active job listings that match remote Product Manager, Technical Product Manager, or IT Application Engineering positions.
+Analyze the raw text content from this corporate careers page and extract any active job listings matching: {target_role}.
 
-For each job found, construct a clean block exactly like this:
+For each matching job found, construct a clean block exactly like this:
 <p style="margin-bottom:15px;">
   <strong>Job Title:</strong> [Exact Title]<br>
   <strong>Company:</strong> [Company Name]<br>
   <strong>Location:</strong> Remote - US<br>
-  <strong>Direct Link:</strong> <a href="[Insert the specific extracted job URL or portal link]" style="color:#0288d1; font-weight:bold; text-decoration:underline;">Click Here to View & Apply</a><br>
+  <strong>Direct Link:</strong> <a href="[Insert the specific extracted job URL]" style="color:#0288d1; font-weight:bold; text-decoration:underline;">Click Here to View & Apply</a><br>
   <strong>Why It Fits:</strong> [1-2 sentences detailing semantic alignment]<br>
 </p>
 <hr style='border: 0; border-top: 1px solid #eee;'>
@@ -55,45 +68,49 @@ For each job found, construct a clean block exactly like this:
 If no roles match from the text, reply strictly with: "No matching remote product roles found."
 
 Raw Web Content:
-{web_text[:15000]}  # Keep within context boundaries
+{web_text[:12000]}
 """
     try:
-        # Generate text using the serverless Hugging Face API
         output = client.text_generation(prompt, max_new_tokens=1000, temperature=0.1)
+        if "No matching remote product roles found." in output or len(output.strip()) < 20:
+            return None
         return output
     except Exception as e:
-        print(f"Hugging Face Inference Error: {e}")
-        return f"<p>Error analyzing data with AI: {str(e)}</p>"
+        print(f"AI Generation Error: {e}")
+        return None
 
 # ==========================================
 # 3. THE FLASK ROUTE (Your Live Dashboard)
 # ==========================================
 @app.route("/")
 def dashboard_home():
-    # Define the precise job URLs you want scanned
-    portals = [
-        "https://careers.unitedhealthgroup.com/search-jobs?q=Product+Manager&gl=US", # Optum parent portal query
-        "https://jobs.cvshealth.com/search-jobs?q=Product+Manager"
-    ]
-    
     html_body_content = ""
     
-    for url in portals:
-        print(f"Scanning target portal: {url}")
-        raw_html_text = scrape_with_crawlbase(url)
+    for item in PORTALS:
+        print(f"Scanning {item['company']} live portal...")
+        raw_html_text = scrape_with_crawlbase(item["direct_query_url"])
         
-        # Feed the text to your Hugging Face model
-        ai_extraction = analyze_page_with_ai(raw_html_text)
+        # Try to extract the live deep link via AI
+        ai_extraction = analyze_page_with_ai(raw_html_text, item["search_title"])
         
-        # If it found matching entries, add them to our layout page
-        if "No matching remote product roles found." not in ai_extraction:
+        if ai_extraction:
+            # If the AI successfully read the data and found a deep link, use it!
             html_body_content += ai_extraction
+        else:
+            # FALLBACK: If the portal blocked the scraper, output your target title with a direct portal query link
+            html_body_content += f"""
+<p style="margin-bottom:15px; background-color: #fffaf0; padding: 15px; border-radius: 6px; border: 1px solid #feebc8;">
+  <strong style="color: #dd6b20; font-size: 0.85rem; uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 5px;">⚠️ Live Scraping Blocked - Target Portal Query Ready</strong>
+  <strong>Job Title Target:</strong> {item['search_title']}<br>
+  <strong>Company:</strong> {item['company']}<br>
+  <strong>Location:</strong> Remote - US<br>
+  <strong>Direct Link:</strong> <a href="{item['direct_query_url']}" target="_blank" style="color:#0288d1; font-weight:bold; text-decoration:underline;">Click Here to Run Live Search on Portal</a><br>
+  <strong>Why It Fits:</strong> {item['why_fits']}<br>
+</p>
+<hr style='border: 0; border-top: 1px solid #eee;'>
+            """
 
-    # If the combined loops found absolutely nothing across all pages
-    if not html_body_content.strip():
-        html_body_content = "<p style='color: #718096; font-style: italic;'>No matching remote product roles found today.</p>"
-
-    # Master dashboard UI template container
+    # Master layout wrapper
     master_layout = f"""
     <!DOCTYPE html>
     <html>
@@ -128,5 +145,4 @@ def dashboard_home():
 # ==========================================
 if __name__ == "__main__":
     assigned_port = int(os.getenv("PORT", 8080))
-    print(f"Launching AI Web interface on port {assigned_port}...")
     app.run(host="0.0.0.0", port=assigned_port)
