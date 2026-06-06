@@ -53,7 +53,7 @@ def scrape_with_crawlbase(url):
         
     proxies = {
         "http": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012",
-        "https://http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
+        "https": f"https:// {CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
     }
     
     headers = {
