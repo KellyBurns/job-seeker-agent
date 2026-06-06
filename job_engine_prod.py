@@ -22,8 +22,9 @@ HEALTHCARE_AI_QUERY = (
     'OR+%22Call+Center%22+OR+Agile%29'
 )
 
-OPTUM_COMBINED_URL = f"https://careers.unitedhealthgroup.com/search-jobs?q={HEALTHCARE_AI_QUERY}&gl=US"
-CVS_COMBINED_URL = f"https://jobs.cvshealth.com/search-jobs?q={HEALTHCARE_AI_QUERY}"
+OPTUM_COMBINED_URL = f"https://careers.unitedhealthgroup.com"
+# UPDATED: Re-routed CVS gateway link to prevent portal server-side filter failure
+CVS_COMBINED_URL = f"https://jobs.cvshealth.com/us/en"
 
 PORTALS = [
     {
