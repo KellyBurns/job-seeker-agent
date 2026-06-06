@@ -14,12 +14,12 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # Initialize the Hugging Face AI client
 client = InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", token=HF_TOKEN)
 
-# HEALTHCARE, TPM AI ENGINE & OPEN SOURCE ARCHITECTURE QUERY
-# Injects Hugging Face, Models, Python, and deployment stack alongside clinical keywords
+# HEALTHCARE, TRANSFORMATION, AI ENGINE & ENTERPRISE TOOL STACK QUERY
 HEALTHCARE_AI_QUERY = (
     '%22Product+Manager%22+AND+%28LLM+OR+GenAI+OR+%22Agentic+AI%22+OR+%22Hugging+Face%22+'
-    'OR+Model+OR+STT+OR+RAG+OR+Python+OR+Flask+OR+%22Digital+Transformation%22+'
-    'OR+EPIC+OR+HIPAA+OR+%22Call+Center%22+OR+Agile%29'
+    'OR+%22AI+development%22+OR+Model+OR+STT+OR+RAG+OR+Python+OR+Flask+OR+GitHub+'
+    'OR+Jira+OR+Confluence+OR+%22Digital+Transformation%22+OR+EPIC+OR+HIPAA+'
+    'OR+%22Call+Center%22+OR+Agile%29'
 )
 
 OPTUM_COMBINED_URL = f"https://careers.unitedhealthgroup.com/search-jobs?q={HEALTHCARE_AI_QUERY}&gl=US"
@@ -53,7 +53,7 @@ def scrape_with_crawlbase(url):
         
     proxies = {
         "http": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012",
-        "https://http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
+        "https": f"http://{CRAWLBASE_TOKEN}@smartproxy.crawlbase.com:8012"
     }
     
     headers = {
@@ -83,8 +83,9 @@ Analyze the raw text content from this corporate careers page and extract any ac
 Filter strictly for positions targeting 1 to 6 years of experience in Product Management (e.g., jobs asking for 2+ years, 3+ years, 5 years, or up to 6 years of experience) to avoid bloated senior director/10+ year legacy tracks.
 
 Evaluate semantic alignment by comparing requirements against the candidate's core Technical Product Manager (TPM) profile:
-- Hands-on AI Model & Lifecycle Management: Direct experience working with the Hugging Face ecosystem, managing Inference Clients, orchestrating raw API code endpoints, and evaluating open-source model architectures (like Llama) against business requirements.
-- Technical Execution & Prototyping: Strong ability to audit/debug raw Python source code, build Python/Flask application wrappers, navigate GitHub version control pipelines, and deploy live containerized applications via modern CI/CD architectures (Railway).
+- Enterprise Collaboration & Tooling: Daily proficiency orchestrating backlogs inside Jira, documenting system technical taxonomies in Confluence, and aligning cross-functional execution paths via GitHub.
+- Hands-on AI Model & Lifecycle Management: Direct experience working with the Hugging Face ecosystem, managing Inference Clients, orchestrating raw AI development endpoints, and evaluating open-source model architectures (like Llama) against business requirements.
+- Technical Execution & Prototyping: Strong ability to audit/debug raw Python source code, build Python/Flask application wrappers, navigate version control pipelines, and deploy live containerized applications via modern CI/CD architectures (Railway).
 - Domain Context (Kaiser Permanente & Corporate Scale): Owned product taxonomy and technical roadmaps for "CHATS" enterprise cloud AI platform; managed 1M+ monthly call operational scaling metrics using STT, RAG, and NLP workflows. Led 40+ complex API integrations (including Epic EHR) under 100% strict HIPAA/PHI compliance frameworks. 
 - Agile & Education Foundations: Transitioned a 60+ member organization via the Agile Product Maturity Model (PMM) and PI Planning. Academic backing in Agentic AI Foundations (Harvard 2026) and AI Product Design (MIT 2024).
 
@@ -95,7 +96,7 @@ For each matching job found, construct a clean block exactly like this:
   <strong>Location:</strong> Remote - US<br>
   <strong>Experience Range:</strong> 1-6 Years Product Management Experience<br>
   <strong>Direct Link:</strong> <a href="[Insert the specific extracted job URL]" style="color:#0288d1; font-weight:bold; text-decoration:underline;">Click Here to View & Apply</a><br>
-  <strong>Why It Fits:</strong> [Detail precise structural alignment using their hands-on ability to interface with Hugging Face models, debug Python source code, collaborate with engineering teams on raw models, or manage cloud containerized deployments in 1-2 powerful sentences]<br>
+  <strong>Why It Fits:</strong> [Detail precise structural alignment using their hands-on ability to interface with Hugging Face models, debug Python source code, manage delivery pipelines using Jira/Confluence/GitHub, or coordinate enterprise agile frameworks in 1-2 powerful sentences]<br>
 </p>
 <hr style='border: 0; border-top: 1px solid #eee;'>
 
@@ -129,7 +130,7 @@ def dashboard_home():
         if ai_extraction:
             html_body_content += ai_extraction
         else:
-            # FALLBACK TEMPLATE: Tailored with your updated open-source model execution and Hugging Face literacy
+            # FALLBACK TEMPLATE: Updated with collaboration tools and core AI engineering vocabulary
             html_body_content += f"""
 <p style="margin-bottom:15px; background-color: #fffaf0; padding: 15px; border-radius: 6px; border: 1px solid #feebc8;">
   <strong style="color: #dd6b20; font-size: 0.85rem; uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 5px;">⚠️ Live Scraping Blocked - Target Portal Query Ready</strong>
